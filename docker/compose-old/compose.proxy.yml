@@ -1,0 +1,95 @@
+version: '3.7'
+
+services:
+  ansep-app:
+    restart: always
+    container_name: ansep_app
+    image: kadriand/ansep:nginx
+    environment:
+      - NO_R=false
+      - ANSEP_DATA=/ansep-data
+      - DJANGO_SETTINGS_MODULE=ansep.settings_environment
+      - APP_DB_HOST=10.212.12.32
+      - APP_DB_PORT=5432
+      - MINERVA_API=http//10.212.12.32:8080
+      - MINERVA_HOST=
+    command: >
+      bash -c "cp /ansep/docker/data/ansep_nginx_ip /etc/nginx/sites-available/ansep
+      && python manage.py makemigrations
+      && python manage.py migrate
+      && service nginx start
+      && gunicorn -c gunicorn-config.py ansep.wsgi"
+    volumes:
+      - type: volume
+        source: ansep-vol
+        target: /ansep-data
+        volume:
+          external: true
+      - type: bind
+        source: ./
+        target: /ansep
+    ports:
+      - "8000:8000"
+      - "8765:8765"
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - ansep-db
+    logging:
+      options:
+        max-size: 50m
+  ansep-db:
+    restart: always
+    container_name: ansep_db
+    image: postgres:10-alpine
+    environment:
+      - POSTGRES_USER=ansep
+      - POSTGRES_PASSWORD=dbanseppass
+      - POSTGRES_DB=ansepdevelop
+    volumes:
+      - type: volume
+        source: postgres-vol
+        target: /var/lib/postgresql/data
+        volume:
+          external: true
+    ports:
+      - "5432:5432"
+    logging:
+      options:
+        max-size: 50m
+  minerva-app:
+    container_name: minerva_app
+    image: kadriand/minerva-ansep:latest
+    command: >
+      sh -c "echo 'database.uri=jdbc:postgresql://10.212.12.32:5433/minervadb' > /etc/minerva/db.properties
+      && echo 'database.username=minervauser' >> /etc/minerva/db.properties
+      && echo 'database.password=minervapass' >> /etc/minerva/db.properties
+      && catalina.sh run"
+    environment:
+      - JAVA_OPTS=-Djava.awt.headless=true -Xmx3096m -XX:+UseConcMarkSweepGC
+    volumes:
+      - minerva-app:/usr/local/tomcat/webapps/map_images/
+    ports:
+      - ${MINERVA_PORT:-8080}:8080
+    depends_on:
+      - minerva-db
+  minerva-db:
+    container_name: minerva_db
+    image: postgres:9.6-alpine
+    environment:
+      - POSTGRES_USER=minervauser
+      - POSTGRES_PASSWORD=minervapass
+      - POSTGRES_DB=minervadb
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"
+volumes:
+  ansep-vol:
+    external: true
+  postgres-vol:
+    external: true
+  pgdata:
+  minerva-app:
+

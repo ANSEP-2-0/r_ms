@@ -1,0 +1,61 @@
+version: '3.7'
+
+services:
+  ansep-app:
+    restart: always
+    container_name: ansep_app
+    image: kadriand/ansep:nginx
+    environment:
+      - NO_R=false
+      - ANSEP_DATA=/ansep-data
+      - DJANGO_SETTINGS_MODULE=ansep.settings_environment
+      - APP_DB_HOST=10.212.12.32
+      - APP_DB_PORT=5432
+    command: >
+      bash -c "python manage.py makemigrations
+      && python manage.py migrate
+      && service nginx start
+      && gunicorn -c gunicorn-config.py ansep.wsgi"
+    volumes:
+      - type: volume
+        source: ansep-vol
+        target: /ansep-data
+        volume:
+          external: true
+      - type: bind
+        source: ./
+        target: /ansep
+    ports:
+      - "8000:8000"
+      - "8765:8765"
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - ansep_db
+    logging:
+      options:
+        max-size: 50m
+  ansep_db:
+    restart: always
+    container_name: ansep_db
+    image: postgres:10-alpine
+    environment:
+      - POSTGRES_USER=ansep
+      - POSTGRES_PASSWORD=dbanseppass
+      - POSTGRES_DB=ansepdevelop
+    volumes:
+      - type: volume
+        source: postgres-vol
+        target: /var/lib/postgresql/data
+        volume:
+          external: true
+    ports:
+      - "5432:5432"
+    logging:
+      options:
+        max-size: 50m
+volumes:
+  ansep-vol:
+    external: true
+  postgres-vol:
+    external: true

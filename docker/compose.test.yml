@@ -1,0 +1,87 @@
+version: '3.7'
+
+services:
+
+  ansep-app:
+    restart: always
+    container_name: ansep_app
+    #image: kadriand/ansep:nginx
+    image: jhsrojasro/ansep:nginx
+    environment:
+      - R_ENABLED=true
+      - ANSEP_DATA=/ansep-data
+      - DJANGO_SETTINGS_MODULE=ansep.settings_environment
+      - APP_HOST=http://168.176.61.231
+      - APP_DB_HOST=localhost
+      - APP_DB_PORT=5434
+      - MINERVA_API=http://localhost:8080
+      - MINERVA_HOST=
+    command: >
+      bash -c "cp /ansep/docker/data/ansep_nginx_prod /etc/nginx/sites-available/ansep
+      && python manage.py makemigrations
+      && python manage.py migrate
+      && service nginx start
+      && gunicorn -c gunicorn-config.py ansep.wsgi"
+    volumes:
+      - type: volume
+        source: ansep-vol
+        target: /ansep-data
+      - type: bind
+        source: ../
+        target: /ansep
+    network_mode: host
+    depends_on:
+      - ansep-db
+    logging:
+      options:
+        max-size: 50m
+  ansep-db:
+    restart: always
+    container_name: ansep_db
+    image: postgres
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_USER=ansep
+      - POSTGRES_PASSWORD=dbanseppass
+    volumes:
+      - type: volume
+        source: postgres-vol
+        target: /var/lib/postgresql/data
+    #network_mode: host
+    logging:
+      options:
+        max-size: 50m
+  minerva-db:
+    container_name: minerva_db
+    image: kadriand/minerva-db-ansep:recon
+    environment:
+      - POSTGRES_USER=minervauser
+      - POSTGRES_PASSWORD=minervapass
+      - POSTGRES_DB=minervadb
+      - PGDATA=/var/lib/postgresql-static/data
+    network_mode: host
+    logging:
+      options:
+        max-size: 50m
+  minerva:
+    container_name: minerva_app
+    image: kadriand/minerva-ansep:recon
+    command: >
+      bash -c 'sed -i 's/db:5433/localhost:5433/g' /etc/minerva/db.properties
+      && while !</dev/tcp/localhost/5433; do echo [`date +%F%t%T%t%Z`] Making db health check; sleep 1; done
+      && catalina.sh run'
+    environment:
+      - JAVA_OPTS=-Djava.awt.headless=true -Xmx3096m -XX:+UseConcMarkSweepGC
+    network_mode: host
+    depends_on:
+      - minerva-db
+    logging:
+      options:
+        max-size: 50m
+volumes:
+  ansep-vol:
+    external: true
+  postgres-vol:
+    external: true
+

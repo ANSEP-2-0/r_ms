@@ -1,0 +1,26 @@
+version: '3.7'
+
+services:
+  ansep_build:
+    build: ../
+    container_name: ansep
+    image: kadriand/ansep:nginx
+    environment:
+      - R_ENABLED=true
+      - ANSEP_DATA=/ansep-data
+      - DJANGO_SETTINGS_MODULE=ansep.settings_environment
+    command: bash -c "python manage.py makemigrations && python manage.py migrate && service nginx start && gunicorn -c gunicorn-config.py ansep.wsgi"
+    volumes:
+      - type: volume
+        source: ansep-vol
+        target: /ansep-data
+      - type: bind
+        source: ../
+        target: /ansep
+    ports:
+      - "8000:8000"
+      - "8765:8765"
+      - "80:80"
+volumes:
+  ansep-vol:
+    external: true

@@ -1,0 +1,45 @@
+server {
+    listen 80;
+    server_name 0.0.0.0;
+    client_max_body_size 60M;
+
+    location = /favicon.ico {
+        access_log off;
+        log_not_found off;
+        alias /ansep/assets/bundles/static/brand/ansep.ico;
+     }
+
+    location ^~ /static {
+        alias /ansep/assets;
+        try_files $uri $uri/ @secondStatic;
+    }
+
+    location @secondStatic {
+        root /ansep/assets/bundles;
+    }
+
+    location /minerva/ {
+        proxy_pass http://localhost:8080/minerva/;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   Host      $http_host;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_send_timeout          300;
+        proxy_read_timeout          300;
+    }
+
+    location /map_images/ {
+        proxy_pass http://localhost:8080/map_images/;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   Host      $http_host;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_send_timeout          300;
+        proxy_read_timeout          300;
+    }
+
+    location / {
+        include proxy_params;
+        proxy_pass http://127.0.0.1:8000;
+    }
+}

@@ -1,0 +1,30 @@
+version: '3.7'
+
+services:
+  minerva_db:
+    container_name: minerva_db
+    image: kadriand/minerva-db-ansep:recon
+    environment:
+      - POSTGRES_USER=minervauser
+      - POSTGRES_PASSWORD=minervapass
+      - POSTGRES_DB=minervadb
+      - PGDATA=/var/lib/postgresql-static/data
+    network_mode: host
+    logging:
+      options:
+        max-size: 50m
+  minerva:
+    container_name: minerva_app
+    image: kadriand/minerva-ansep:recon
+    command: >
+      bash -c 'sed -i 's/db:5433/localhost:5433/g' /etc/minerva/db.properties
+      && while !</dev/tcp/localhost/5433; do echo [`date +%F%t%T%t%Z`] Making db health check; sleep 1; done
+      && catalina.sh run'
+    environment:
+      - JAVA_OPTS=-Djava.awt.headless=true -Xmx3096m -XX:+UseConcMarkSweepGC
+    network_mode: host
+    depends_on:
+      - minerva_db
+    logging:
+      options:
+        max-size: 50m

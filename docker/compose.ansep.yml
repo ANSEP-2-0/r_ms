@@ -1,0 +1,58 @@
+version: '3.7'
+
+services:
+  ansep_app:
+    restart: never
+    container_name: ansep_app
+    image: kadriand/ansep:nginx
+    environment:
+      - R_ENABLED=true
+      - ANSEP_DATA=/ansep-data
+      - DJANGO_SETTINGS_MODULE=ansep.settings_environment
+      - APP_DB_HOST=localhost
+      - APP_DB_PORT=5432
+      - MINERVA_API=http://localhost:8080
+      - MINERVA_HOST=
+      - POSTGRES_DB=ansepdevelop
+      - POSTGRES_USER=ansep
+      - POSTGRES_PASSWORD=dbanseppass
+    command: >
+      bash -c "cp /ansep/docker/data/ansep_nginx_prod /etc/nginx/sites-available/ansep
+      && python manage.py makemigrations
+      && python manage.py migrate
+      && service nginx start
+      && gunicorn -c gunicorn-config.py ansep.wsgi"
+    volumes:
+      - type: volume
+        source: ansep-vol
+        target: /ansep-data
+      - type: bind
+        source: ../
+        target: /ansep
+    network_mode: host
+    depends_on:
+      - ansep_db
+    logging:
+      options:
+        max-size: 50m
+  ansep_db:
+    container_name: ansep_db
+    image: postgres:10-alpine
+    environment:
+      - POSTGRES_USER=ansep
+      - POSTGRES_PASSWORD=dbanseppass
+      - POSTGRES_DB=ansepdevelop
+    volumes:
+      - type: volume
+        source: postgres-vol
+        target: /var/lib/postgresql/data
+    network_mode: host
+    logging:
+      options:
+        max-size: 50m
+volumes:
+  ansep-vol:
+    external: true
+  postgres-vol:
+    external: true
+
